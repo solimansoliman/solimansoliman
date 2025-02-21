@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بحث مع سجل البحث</title>
+    <style>
+        body { font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #f9f9f9; }
+        .search-container { width: 350px; margin: 20px auto; position: relative; }
+        .search-box { display: flex; align-items: center; background: white; border-radius: 20px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: text; }
+        input { flex: 1; border: none; outline: none; padding: 8px; font-size: 16px; }
+        .search-icon { font-size: 20px; color: gray; cursor: pointer; }
+        .history-container { position: absolute; width: 100%; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: none; max-height: 250px; overflow-y: auto; margin-top: 5px; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd; }
+        .history-item { display: flex; align-items: center; padding: 10px; cursor: pointer; transition: background 0.3s; }
+        .history-item:hover { background: #f1f1f1; }
+        .history-icon { width: 25px; height: 25px; border-radius: 50%; margin-left: 10px; }
+        .delete-btn { margin-right: auto; color: red; cursor: pointer; font-weight: bold; }
+        .history-time { font-size: 12px; color: #888; margin-right: 10px; }
+        .char-counter { font-size: 12px; color: #888; margin-top: 5px; text-align: left; }
+        .char-counter.warning { color: red; }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <div class="search-box" onclick="showHistory()">
+            <span class="search-icon" onclick="performSearch()">🔍</span>
+            <input type="text" id="searchInput" placeholder="ابحث هنا..." onkeyup="handleKeyUp(event)" onfocus="showHistory()" maxlength="100">
+        </div>
+        <div class="char-counter" id="charCounter">100 حرف متبقية</div>
+        <div class="history-container" id="history">
+            <div class="history-header">
+                <span>عمليات البحث الأخيرة</span>
+                <span class="delete-btn" onclick="clearHistory()">🗑️</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const historyKey = "searchHistory";
+        const maxChars = 100; // الحد الأقصى لعدد الأحرف
+
+        function loadHistory() {
+            return JSON.parse(localStorage.getItem(historyKey)) || [];
+        }
+
+        function showHistory() {
+            const historyDiv = document.getElementById("history");
+            const input = document.getElementById("searchInput").value.toLowerCase();
+            let history = loadHistory().filter(item => item.text.toLowerCase().includes(input));
+            historyDiv.innerHTML = `
+                <div class="history-header">
+                    <span>عمليات البحث الأخيرة</span>
+                    <span class="delete-btn" onclick="clearHistory()">🗑️</span>
+                </div>`;
+            
+            if (history.length > 0) {
+                historyDiv.style.display = "block";
+                history.forEach((item, index) => {
+                    let div = document.createElement("div");
+                    div.className = "history-item";
+                    div.innerHTML = `
+                        <img src="${item.image}" class="history-icon" alt="صورة البحث">
+                        <span>${item.text}</span>
+                        <span class="history-time">${item.time}</span>
+                        <span class="delete-btn" onclick="deleteHistory(event, ${index})">❌</span>
+                    `;
+                    div.onclick = () => {
+                        document.getElementById("searchInput").value = item.text;
+                        updateCharCounter();
+                        historyDiv.style.display = "none";
+                    };
+                    historyDiv.appendChild(div);
+                });
+            } else {
+                historyDiv.style.display = "none";
+            }
+        }
+
+        function performSearch() {
+            let searchInput = document.getElementById("searchInput").value;
+            if (!searchInput.trim()) return;
+
+            // تنظيف نص البحث من أي أكواد HTML
+            searchInput = sanitizeInput(searchInput);
+
+            let history = loadHistory();
+            
+            // منع تكرار الإدخالات
+            history = history.filter(item => item.text !== searchInput);
+            
+            let searchItem = {
+                text: searchInput,
+                image: "image.png",
+                time: new Date().toLocaleString() // إضافة الوقت الحالي
+            };
+            history.unshift(searchItem);
+            localStorage.setItem(historyKey, JSON.stringify(history));
+            showHistory();
+        }
+
+        function handleKeyUp(event) {
+            if (event.key === "Enter") {
+                performSearch();
+            }
+            updateCharCounter();
+            showHistory();
+        }
+
+        function updateCharCounter() {
+            const input = document.getElementById("searchInput");
+            const charCounter = document.getElementById("charCounter");
+            const remainingChars = maxChars - input.value.length;
+            charCounter.textContent = `${remainingChars} حرف متبقية`;
+            if (remainingChars <= 10) {
+                charCounter.classList.add("warning");
+            } else {
+                charCounter.classList.remove("warning");
+            }
+        }
+
+        function deleteHistory(event, index) {
+            event.stopPropagation();
+            let history = loadHistory();
+            history.splice(index, 1);
+            localStorage.setItem(historyKey, JSON.stringify(history));
+            showHistory();
+        }
+
+        function clearHistory() {
+            localStorage.removeItem(historyKey);
+            document.getElementById("history").style.display = "none";
+        }
+
+        function sanitizeInput(input) {
+            // إزالة أي أكواد HTML من النص
+            const temp = document.createElement("div");
+            temp.textContent = input;
+            return temp.innerHTML;
+        }
+    </script>
+</body>
+</html>
+
+
+
+<!-- 
+
+
+شرح التحديثات:
+الحد الأقصى للأحرف:
+
+تم إضافة خاصية maxlength="100" إلى حقل الإدخال لمنع المستخدم من إدخال أكثر من 100 حرف.
+
+تمت إضافة عداد للأحرف المتبقية (char-counter) يعرض عدد الأحرف المتبقية أثناء الكتابة.
+
+تنظيف نص البحث من HTML:
+
+تمت إضافة دالة sanitizeInput لإزالة أي أكواد HTML من نص البحث باستخدام عنصر div مؤقت.
+
+تحسينات واجهة المستخدم:
+
+تمت إضافة تحذير مرئي (لون أحمر) عندما يتبقى أقل من 10 أحرف.
+
+تم تحسين عرض الأحرف المتبقية أسفل حقل البحث.
+
+التعامل مع الأمان:
+
+تم تنظيف نص البحث من أي أكواد HTML قبل تخزينه في السجل.
+
+كيفية الاستخدام:
+اكتب في حقل البحث، وسيظهر عدد الأحرف المتبقية أسفله.
+
+إذا وصلت إلى الحد الأقصى للأحرف، سيظهر تحذير باللون الأحمر.
+
+يمكنك حذف عناصر محددة من سجل البحث أو مسح السجل بالكامل.
+
+إذا كنت بحاجة إلى أي تحسينات إضافية أو توضيحات، فلا تتردد في طلب المساعدة! 😊 -->
+
